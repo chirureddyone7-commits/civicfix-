@@ -95,6 +95,8 @@ function App() {
   const [active, setActive] = useState("Overview");
   const [complaints, setComplaints] = useState(initialComplaints);
   const [apiError, setApiError] = useState("");
+  const [hotspots, setHotspots] = useState([]);
+  const [hotspotError, setHotspotError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -135,6 +137,25 @@ function App() {
 
     return () => { active = false; };
   }, []);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/issues/hotspots")
+      .then(async response => {
+        if (!response.ok) throw new Error("Could not load complaint hotspots");
+        return response.json();
+      })
+      .then(data => {
+        if (active) {
+          setHotspots(data.hotspots || []);
+          setHotspotError("");
+        }
+      })
+      .catch(error => {
+        if (active) setHotspotError(error.message || "Hotspot data unavailable");
+      });
+    return () => { active = false; };
+  }, []);
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
@@ -512,9 +533,39 @@ function App() {
 
         {/* MAP PAGE */}
         {active === "Map" && (
-          <Panel title="Bengaluru Live Incident Map">
-            <div className="full-map">{map}</div>
-          </Panel>
+          <>
+            <Panel title="Repeated Complaint Locations">
+              <p style={{ color: "#aaa4bf", fontSize: 13, marginTop: 0 }}>
+                Locations with two or more unresolved reports. Matching is based on the entered location text.
+              </p>
+              {hotspotError && <p role="alert" style={{ color: "#ffc2d6" }}>{hotspotError}</p>}
+              {hotspots.length === 0 && !hotspotError && (
+                <p style={{ color: "#aaa4bf" }}>No repeated unresolved complaint locations found yet.</p>
+              )}
+              {hotspots.map((spot, index) => (
+                <div key={spot.location_key} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  gap: 14, padding: "13px 4px", borderBottom: "1px solid #302b45", flexWrap: "wrap"
+                }}>
+                  <div>
+                    <strong>{spot.location}</strong>
+                    <div style={{ color: "#aaa4bf", fontSize: 12, marginTop: 5 }}>
+                      Categories: {(spot.categories || []).join(", ")}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <strong>{spot.report_count} reports</strong>
+                    <div style={{ color: spot.high_priority_count > 0 ? "#fb7185" : "#aaa4bf", fontSize: 12, marginTop: 5 }}>
+                      {spot.high_priority_count} high priority
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </Panel>
+            <Panel title="Bengaluru Live Incident Map">
+              <div className="full-map">{map}</div>
+            </Panel>
+          </>
         )}
 
         {/* INCIDENTS PAGE */}
