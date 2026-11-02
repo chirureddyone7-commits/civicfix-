@@ -10,6 +10,8 @@ const button = { background: "#8b5cf6", color: "white", border: 0, borderRadius:
 export default function CitizenReport() {
   const fileRef = useRef(null);
   const [form, setForm] = useState({ title: "", description: "", location: "", reporter: "" });
+  const [coordinates, setCoordinates] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("");
   const [image, setImage] = useState("");
   const [imageName, setImageName] = useState("");
   const [analysis, setAnalysis] = useState(null);
@@ -23,6 +25,35 @@ export default function CitizenReport() {
   const change = (key, value) => {
     setForm(old => ({ ...old, [key]: value }));
     setAssessment(null);
+  };
+
+  const captureLocation = () => {
+    setError(""); setLocationStatus("Getting your location...");
+    if (!navigator.geolocation) {
+      setLocationStatus("");
+      setError("This browser does not support GPS location.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        setCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: Math.round(position.coords.accuracy)
+        });
+        setLocationStatus("GPS location captured successfully.");
+      },
+      geoError => {
+        setLocationStatus("");
+        const reason = geoError.code === 1
+          ? "Location permission was denied. Allow location access in your browser."
+          : geoError.code === 2
+          ? "Your current location is unavailable. Try again outdoors or enter the location manually."
+          : "Location request timed out. Please try again.";
+        setError(reason);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
   };
 
   const assessComplaint = async () => {
@@ -137,13 +168,16 @@ export default function CitizenReport() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title, description: form.description, location: form.location,
-          reporter_name: form.reporter || undefined, category, priority
+          reporter_name: form.reporter || undefined, category, priority,
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null
         })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Complaint submission failed.");
       setMessage(`Complaint submitted. Your complaint ID is CF-${data.issue.id}.`);
       setForm({ title: "", description: "", location: "", reporter: "" });
+      setCoordinates(null); setLocationStatus("");
       setImage(""); setImageName(""); setAnalysis(null); setAssessment(null); setCategory("OTHER"); setPriority("MEDIUM");
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) { setError(e.message || "Could not submit complaint."); }
@@ -164,8 +198,15 @@ export default function CitizenReport() {
           <input style={field} required minLength={3} maxLength={150} value={form.title} onChange={e => change("title", e.target.value)} placeholder="Large pothole near bus stop" />
           <label style={label}>Describe the issue *</label>
           <textarea style={{ ...field, minHeight: 105, resize: "vertical" }} required minLength={5} value={form.description} onChange={e => change("description", e.target.value)} placeholder="Explain what happened and who is affected." />
-          <label style={label}>Location *</label>
+          <label style={label}>Location / address *</label>
           <input style={field} required minLength={2} maxLength={255} value={form.location} onChange={e => change("location", e.target.value)} placeholder="Street, area, city" />
+          <button type="button" style={{ ...button, marginBottom: 12 }} disabled={busy} onClick={captureLocation}>
+            {locationStatus === "Getting your location..." ? "Getting GPS location..." : coordinates ? "Refresh GPS location" : "Use my current GPS location"}
+          </button>
+          {coordinates && <p style={{ ...muted, marginTop: 0 }}>
+            <span style={{ color: "#86efac" }}>GPS captured</span> · {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)} · accuracy about {coordinates.accuracy} m
+          </p>}
+          {locationStatus && !coordinates && <p style={muted}>{locationStatus}</p>}
           <label style={label}>Your name (optional)</label>
           <input style={{ ...field, marginBottom: 0 }} maxLength={100} value={form.reporter} onChange={e => change("reporter", e.target.value)} placeholder="Your name" />
         </div>
