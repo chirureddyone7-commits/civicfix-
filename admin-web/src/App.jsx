@@ -555,6 +555,11 @@ function App() {
                     <div style={{ color: "#aaa4bf", fontSize: 12, marginTop: 5 }}>
                       Categories: {(spot.categories || []).join(", ")}
                     </div>
+                    {spot.latitude != null && spot.longitude != null && (
+                      <div style={{ color: "#aaa4bf", fontSize: 11, marginTop: 4 }}>
+                        GPS cluster: {Number(spot.latitude).toFixed(5)}, {Number(spot.longitude).toFixed(5)}
+                      </div>
+                    )}
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <strong>{spot.report_count} reports</strong>
