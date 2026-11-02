@@ -7,7 +7,8 @@ import issueRoutes from "./routes/issue.routes";
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Base64 image uploads need a larger JSON body limit than Express's default.
+app.use(express.json({ limit: "8mb" }));
 
 app.get("/", (_req, res) => {
     res.json({
@@ -36,7 +37,6 @@ app.get("/api/health", async (_req, res) => {
     }
 });
 
-// Civic issue APIs
 app.use("/api/issues", issueRoutes);
 app.use("/api/ai", aiRoutes);
 
