@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 import {
@@ -92,18 +92,79 @@ function CitySkyline() {
 function App() {
   const [active, setActive] = useState("Overview");
   const [complaints, setComplaints] = useState(initialComplaints);
+  const [apiError, setApiError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/issues")
+      .then(async response => {
+        if (!response.ok) throw new Error("Could not load incidents from the API");
+        return response.json();
+      })
+      .then(data => {
+        if (!active) return;
+        const apiIssues = (data.issues || []).map(issue => ({
+          id: `CF-${issue.id}`,
+          apiId: issue.id,
+          title: issue.title,
+          type: String(issue.category || "OTHER").replaceAll("_", " "),
+          location: issue.location,
+          status: issue.status === "IN_PROGRESS" ? "In Progress" :
+            issue.status === "RESOLVED" ? "Resolved" : "Submitted",
+          priority: issue.priority === "HIGH" ? "High" :
+            issue.priority === "LOW" ? "Low" : "Medium",
+          department: issue.category === "ROADS" ? "Roads" :
+            issue.category === "WATER" ? "Water Supply" :
+            issue.category === "GARBAGE" ? "Sanitation" :
+            issue.category === "STREETLIGHT" ? "Electrical" :
+            issue.category === "DRAINAGE" ? "Drainage" : "General",
+          reportedBy: issue.reporter_name || "Citizen",
+          description: issue.description,
+          lat: 12.9716,
+          lng: 77.6100
+        }));
+        setComplaints(apiIssues);
+        setApiError("");
+      })
+      .catch(error => {
+        if (active) setApiError(error.message);
+      });
+
+    return () => { active = false; };
+  }, []);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState(null);
 
-  const updateStatus = (id, status) => {
-    setComplaints(old =>
-      old.map(c => c.id === id ? { ...c, status } : c)
-    );
+  const updateStatus = async (id, status) => {
+    const complaint = complaints.find(c => c.id === id);
+    if (!complaint?.apiId) {
+      setApiError("This sample incident is not stored in the backend.");
+      return;
+    }
 
-    setSelected(old =>
-      old?.id === id ? { ...old, status } : old
-    );
+    const apiStatus = status === "In Progress" ? "IN_PROGRESS" :
+      status === "Resolved" ? "RESOLVED" : "OPEN";
+
+    try {
+      const response = await fetch(`/api/issues/${complaint.apiId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: apiStatus })
+      });
+      if (!response.ok) throw new Error("Status update failed");
+
+      setComplaints(old =>
+        old.map(c => c.id === id ? { ...c, status } : c)
+      );
+      setSelected(old =>
+        old?.id === id ? { ...old, status } : old
+      );
+      setApiError("");
+    } catch (error) {
+      setApiError(error.message || "Could not update incident status");
+    }
   };
 
   const filtered = complaints.filter(c => {
@@ -230,6 +291,12 @@ function App() {
 
           {active === "Overview" && <CitySkyline />}
         </section>
+
+        {apiError && (
+          <div role="alert" style={{ margin: "12px 0", padding: "10px 14px", border: "1px solid #9f4565", borderRadius: 8, color: "#ffc2d6", background: "#351626" }}>
+            API: {apiError}
+          </div>
+        )}
 
         {/* OVERVIEW */}
         {active === "Overview" && (
