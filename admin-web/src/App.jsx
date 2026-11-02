@@ -125,8 +125,8 @@ function App() {
             issue.category === "DRAINAGE" ? "Drainage" : "General",
           reportedBy: issue.reporter_name || "Citizen",
           description: issue.description,
-          lat: 12.9716,
-          lng: 77.6100
+          lat: issue.latitude == null ? null : Number(issue.latitude),
+          lng: issue.longitude == null ? null : Number(issue.longitude)
         }));
         setComplaints(apiIssues);
         setApiError("");
@@ -221,7 +221,10 @@ function App() {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {complaints.map(c => (
+      {complaints.filter(c =>
+        Number.isFinite(c.lat) && Number.isFinite(c.lng) &&
+        c.lat >= -90 && c.lat <= 90 && c.lng >= -180 && c.lng <= 180
+      ).map(c => (
         <CircleMarker
           key={c.id}
           center={[c.lat, c.lng]}
