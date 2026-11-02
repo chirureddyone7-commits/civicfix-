@@ -133,6 +133,45 @@ Return only JSON: {"is_civic_issue":true,"category":"ROADS","priority":"HIGH","r
     return imageResponseSchema.parse(parseAiJson(content));
 }
 
+
+const combinedResponseSchema = imageResponseSchema.extend({
+    text_matches_image: z.boolean(),
+    mismatch_reason: z.string()
+});
+
+export async function analyzeCombinedReport(imageDataUrl: string, title: string, description: string) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OpenRouter API key is missing");
+    const model = process.env.OPENROUTER_VISION_MODEL || "openrouter/free";
+    const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+        model,
+        messages: [
+            {
+                role: "system",
+                content: `You are CivicFix's multimodal civic-complaint verifier. Inspect the uploaded image AND compare it with the citizen's title and description.
+First decide whether the image itself clearly shows a real civic/infrastructure problem. Reject unrelated or unclear images.
+Classify the visible issue using ROADS, WATER, GARBAGE, STREETLIGHT, DRAINAGE, OTHER. Assign LOW, MEDIUM, HIGH priority based on visible urgency and safety risk.
+Set text_matches_image=true only when the title and description accurately describe the visible issue. If the report claims a pothole but image shows garbage, set false and explain the mismatch. Do not trust the text over the image.
+Return only JSON with keys is_civic_issue, category, priority, reason, detected_objects, confidence, text_matches_image, mismatch_reason. For a rejected image use OTHER, LOW, false, and explain.`
+            },
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: `Citizen title: ${title}\nCitizen description: ${description}` },
+                    { type: "image_url", image_url: { url: imageDataUrl } }
+                ]
+            }
+        ],
+        temperature: 0.1
+    }, {
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        timeout: 60000
+    });
+    const content = response.data.choices?.[0]?.message?.content;
+    if (typeof content !== "string") throw new Error("Vision model returned an invalid response");
+    return combinedResponseSchema.parse(parseAiJson(content));
+}
+
 export async function findDuplicateIssues(incoming: { title: string; description: string; location: string; category: string }, existing: Array<{ id: number; title: string; description: string; location: string; category: string }>) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) throw new Error("OpenRouter API key is missing");
