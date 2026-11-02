@@ -30,13 +30,24 @@ export default function ReportScreen() {
     if(!result.canceled && result.assets[0]) setPhotos(p=>[...p,result.assets[0].uri].slice(0,5));
   };
   const locate=async()=>{
-    const permission=await Location.requestForegroundPermissionsAsync();
-    if(!permission.granted){Alert.alert("Location permission","You can type the area/address manually.");return;}
-    const pos=await Location.getCurrentPositionAsync({});
-    setCoords({latitude:pos.coords.latitude,longitude:pos.coords.longitude});
-    const places=await Location.reverseGeocodeAsync(pos.coords);
-    const p=places[0];
-    setLocation([p?.name,p?.street,p?.district,p?.city,p?.region].filter(Boolean).join(", ") || "Current location");
+    try {
+      const permission=await Location.requestForegroundPermissionsAsync();
+      if(!permission.granted){Alert.alert("Location permission needed","Allow location access in Android Settings, or enter your area/address manually.");return;}
+      const servicesEnabled=await Location.hasServicesEnabledAsync();
+      if(!servicesEnabled){Alert.alert("Turn on Location","Enable your phone's GPS/location services, then try again.");return;}
+      const lastKnown=await Location.getLastKnownPositionAsync({});
+      const pos=lastKnown ?? await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});
+      setCoords({latitude:pos.coords.latitude,longitude:pos.coords.longitude});
+      try {
+        const places=await Location.reverseGeocodeAsync(pos.coords);
+        const p=places[0];
+        setLocation([p?.name,p?.street,p?.district,p?.city,p?.region].filter(Boolean).join(", ") || `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+      } catch {
+        setLocation(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+      }
+    } catch(e) {
+      Alert.alert("Could not get location",e instanceof Error?e.message:"Check GPS is enabled and try again. You can also enter the address manually.");
+    }
   };
   const submit=async()=>{
     if(!title.trim()||description.trim().length<5||!location.trim()){Alert.alert("Missing details","Add a title, description and location.");return;}
