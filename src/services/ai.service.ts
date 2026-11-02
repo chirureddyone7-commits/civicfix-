@@ -122,3 +122,34 @@ Return only JSON: {"category":"ROADS","priority":"HIGH","reason":"Brief visual e
     if (typeof content !== "string") throw new Error("Vision model returned an invalid response");
     return imageResponseSchema.parse(parseAiJson(content));
 }
+
+export async function findDuplicateIssues(incoming: { title: string; description: string; location: string; category: string }, existing: Array<{ id: number; title: string; description: string; location: string; category: string }>) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OpenRouter API key is missing");
+    if (existing.length === 0) return { matches: [] };
+
+    const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+        model: "openrouter/free",
+        messages: [
+            { role: "system", content: 'Compare civic reports and identify only reports likely describing the SAME physical issue. Consider location, title and description. Return JSON only: {"matches":[{"issue_id":1,"similarity":"HIGH","reason":"Same issue and location"}]}. similarity must be LOW, MEDIUM or HIGH. Return an empty matches array if none are plausible.' },
+            { role: "user", content: JSON.stringify({ incoming, existing }) }
+        ],
+        temperature: 0.1
+    }, {
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        timeout: 30000
+    });
+
+    const content = response.data.choices?.[0]?.message?.content;
+    if (typeof content !== "string") throw new Error("Invalid AI response");
+    const parsed = z.object({
+        matches: z.array(z.object({
+            issue_id: z.number().int().positive(),
+            similarity: z.enum(["LOW", "MEDIUM", "HIGH"]),
+            reason: z.string()
+        })).max(10)
+    }).parse(parseAiJson(content));
+
+    const validIds = new Set(existing.map(item => item.id));
+    return { matches: parsed.matches.filter(item => validIds.has(item.issue_id)) };
+}
