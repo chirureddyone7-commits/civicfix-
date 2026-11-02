@@ -52,6 +52,38 @@ export default function CitizenReport() {
   const submit = async event => {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
     try {
+      // Check for similar active complaints before saving this report.
+      try {
+        const duplicateResponse = await fetch("/api/ai/check-duplicates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: form.title,
+            description: form.description,
+            location: form.location,
+            category
+          })
+        });
+        if (duplicateResponse.ok) {
+          const duplicateData = await duplicateResponse.json();
+          if (duplicateData.matches?.length) {
+            const summary = duplicateData.matches.slice(0, 3).map(match =>
+              `CF-${match.issue_id} (${match.similarity} similarity): ${match.reason}`
+            ).join("\\n");
+            const proceed = window.confirm(
+              `CivicFix AI found possible similar complaints:\\n\\n${summary}\\n\\nSubmit this complaint anyway?`
+            );
+            if (!proceed) {
+              setMessage("Submission cancelled. Review the existing complaint IDs shown above.");
+              return;
+            }
+          }
+        }
+      } catch (duplicateError) {
+        // Duplicate detection is an assistive feature; it must not block reporting.
+        console.warn("Duplicate check unavailable; continuing submission.", duplicateError);
+      }
+
       const response = await fetch("/api/issues", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
