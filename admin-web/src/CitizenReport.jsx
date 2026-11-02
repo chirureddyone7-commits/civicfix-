@@ -105,16 +105,20 @@ export default function CitizenReport() {
   const analyzePhoto = async () => {
     setBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/ai/analyze-image", {
+      const response = await fetch("/api/ai/analyze-report", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image, description: form.description })
+        body: JSON.stringify({ image, title: form.title, description: form.description })
       });
       const data = await response.json();
       if (data.rejected) {
         clearImage();
         throw new Error(data.message || "This image is not relevant to a civic issue. Please upload another photo.");
       }
-      if (!response.ok) throw new Error(data.message || "AI image analysis failed.");
+      if (data.mismatch) {
+        setAnalysis(null);
+        throw new Error(data.message || "The photo and complaint description do not match. Correct one and analyse again.");
+      }
+      if (!response.ok) throw new Error(data.message || "AI photo and text verification failed.");
       setAnalysis(data.suggestion);
       setAssessment(null);
       setCategory(data.suggestion.category || "OTHER");
@@ -211,14 +215,14 @@ export default function CitizenReport() {
           <input style={{ ...field, marginBottom: 0 }} maxLength={100} value={form.reporter} onChange={e => change("reporter", e.target.value)} placeholder="Your name" />
         </div>
         <div style={panel}>
-          <h3 style={{ marginTop: 0 }}>AI visual inspection</h3>
-          <p style={muted}>Upload a clear photo (JPG, PNG or WebP; maximum 5 MB).</p>
+          <h3 style={{ marginTop: 0 }}>AI photo + text verification</h3>
+          <p style={muted}>Upload a clear photo (JPG, PNG or WebP; maximum 5 MB). AI checks that the photo matches your written complaint.</p>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => handleImage(e.target.files?.[0])} style={{ color: "#d7d2e8", display: "block", margin: "14px 0" }} />
           {image && <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
             <img src={image} alt="Selected civic issue" style={{ width: 180, maxHeight: 150, objectFit: "cover", borderRadius: 10 }} />
             <span style={muted}>{imageName}</span>
           </div>}
-          <button type="button" style={button} disabled={!image || busy} onClick={analyzePhoto}>{busy ? "Please wait..." : "Analyse image with AI"}</button>
+          <button type="button" style={button} disabled={!image || busy} onClick={analyzePhoto}>{busy ? "Please wait..." : "Verify photo and description with AI"}</button>
           {analysis && <div style={{ marginTop: 18, padding: 16, borderRadius: 11, background: "#211b35", border: "1px solid #51416e" }}>
             <strong style={{ color: "#c4b5fd" }}> <span aria-label="verified">✓</span> Civic issue image accepted</strong>
             <p style={muted}>Category: <b>{analysis.category}</b> · Priority: <b>{analysis.priority}</b> · Confidence: <b>{analysis.confidence}</b></p>
