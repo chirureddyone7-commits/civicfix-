@@ -170,14 +170,14 @@ router.get("/stats", async (_req: Request, res: Response) => {
                     CURRENT_DATE - INTERVAL '6 days',
                     CURRENT_DATE,
                     INTERVAL '1 day'
-                 ) AS day
+                 ) AS calendar(day)
                  LEFT JOIN (
                     SELECT DATE(created_at) AS report_day, COUNT(*)::int AS report_count
                     FROM issues
                     WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
                     GROUP BY DATE(created_at)
-                 ) daily ON daily.report_day = DATE(day)
-                 ORDER BY DATE(day)`
+                 ) daily ON daily.report_day = calendar.day::date
+                 ORDER BY calendar.day`
             )
         ]);
 
