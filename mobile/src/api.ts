@@ -15,6 +15,7 @@ export type Issue = {
   created_at?: string;
   latitude?: number | null;
   longitude?: number | null;
+  image_urls?: string[];
 };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -35,11 +36,34 @@ export async function getIssues() {
 export async function createIssue(payload: {
   title: string; description: string; category?: string; location: string;
   latitude?: number | null; longitude?: number | null; reporter_name?: string;
-}) {
-  return request<{ issue: Issue; ai_analysis?: { used: boolean; category?: string; priority?: string; reason?: string } }>(
-    "/api/issues",
-    { method: "POST", body: JSON.stringify(payload) }
-  );
+}, photoUris: string[] = []) {
+  const form = new FormData();
+  form.append("title", payload.title);
+  form.append("description", payload.description);
+  form.append("location", payload.location);
+  if (payload.category) form.append("category", payload.category);
+  if (payload.reporter_name) form.append("reporter_name", payload.reporter_name);
+  if (payload.latitude != null) form.append("latitude", String(payload.latitude));
+  if (payload.longitude != null) form.append("longitude", String(payload.longitude));
+
+  photoUris.slice(0, 5).forEach((uri, index) => {
+    form.append("photos", {
+      uri,
+      name: `civicfix-evidence-${index + 1}.jpg`,
+      type: "image/jpeg"
+    } as any);
+  });
+
+  const response = await fetch(`${API_URL}/api/issues`, {
+    method: "POST",
+    body: form
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || `Request failed (${response.status})`);
+  return data as {
+    issue: Issue;
+    ai_analysis?: { used: boolean; category?: string; priority?: string; reason?: string };
+  };
 }
 
 export function friendlyStatus(status?: string) {
