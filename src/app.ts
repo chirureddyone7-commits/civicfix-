@@ -27,12 +27,18 @@ app.get("/api/health", async (_req, res) => {
             database: "connected"
         });
     } catch (error) {
-        console.error("Database health check failed:", error);
+        const errorMessage = error instanceof Error
+            ? error.message
+            : String(error);
+
+        console.error("Database health check failed:", errorMessage);
+
+        // TEMPORARY DEBUGGING: remove the raw error from this response before public deployment.
         return res.status(503).json({
             status: "unhealthy",
             api: "running",
             database: "disconnected",
-            message: "Check PostgreSQL is running and the DB_* values in .env are correct."
+            message: errorMessage
         });
     }
 });
