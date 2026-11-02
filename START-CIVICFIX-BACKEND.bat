@@ -31,15 +31,29 @@ if not exist "package.json" (
 )
 
 if not exist ".env" (
-  echo ERROR: The backend .env file is missing.
+  if not exist ".env.example" (
+    echo ERROR: Neither .env nor .env.example was found.
+    echo Check that this file is in the CivicFix repository root.
+    pause
+    exit /b 1
+  )
+  copy ".env.example" ".env" >nul
+  if errorlevel 1 (
+    echo ERROR: Could not create .env from .env.example.
+    pause
+    exit /b 1
+  )
+  echo Created .env from the example configuration.
+  echo Add your PostgreSQL connection details before starting the API.
+  echo Opening .env in Notepad now...
+  start /wait notepad ".env"
   echo.
-  echo Copy .env.example to .env and fill in your PostgreSQL connection details.
-  echo The backend cannot save or retrieve complaints until the database is configured.
+  echo After saving .env, run this starter file again.
   pause
-  exit /b 1
+  exit /b 0
 )
 
-echo Checking and installing backend dependencies...
+echo Checking and installing project dependencies...
 call npm install
 if errorlevel 1 (
   echo.
