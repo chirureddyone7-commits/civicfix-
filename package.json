@@ -9,7 +9,8 @@
     "@types/node": "^22.13.4",
     "@types/pg": "^8.11.11",
     "tsx": "^4.19.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "@types/multer": "^2.0.0"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -21,7 +22,9 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "pg": "^8.13.3",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "cloudinary": "^2.7.0",
+    "multer": "^2.0.2"
   },
   "name": "civicfix-backend",
   "private": true,
