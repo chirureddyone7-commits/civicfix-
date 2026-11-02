@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS issues (
         CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH')),
 
     location VARCHAR(255) NOT NULL,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
 
     status VARCHAR(20) NOT NULL DEFAULT 'OPEN'
         CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
