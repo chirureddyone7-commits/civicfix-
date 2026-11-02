@@ -17,7 +17,11 @@ const aiResponseSchema = z.object({
     reason: z.string()
 });
 
-const imageResponseSchema = aiResponseSchema.extend({
+const imageResponseSchema = z.object({
+    is_civic_issue: z.boolean(),
+    category: z.enum(["ROADS", "WATER", "GARBAGE", "STREETLIGHT", "DRAINAGE", "OTHER"]),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    reason: z.string(),
     detected_objects: z.array(z.string()).default([]),
     confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM")
 });
@@ -84,12 +88,12 @@ export async function analyzeIssueImage(imageDataUrl: string, description?: stri
             messages: [
                 {
                     role: "system",
-                    content: `You are CivicFix's visual inspection assistant. Inspect the uploaded civic-issue photo.
-Classify the visible issue into exactly one category: ROADS, WATER, GARBAGE, STREETLIGHT, DRAINAGE, OTHER.
-Set priority: HIGH for immediate safety hazards or major disruption; MEDIUM for significant issues; LOW for minor issues.
-List only objects/problems clearly visible. Do not invent details. If the image is unclear or unrelated, use OTHER and LOW and explain the uncertainty.
-Confidence is your confidence in the visual classification, not proof that the issue exists.
-Return only JSON: {"category":"ROADS","priority":"HIGH","reason":"Brief visual explanation","detected_objects":["pothole"],"confidence":"MEDIUM"}.`
+                    content: `You are CivicFix's strict image relevance gate. Decide whether the uploaded image clearly shows a real-world civic/infrastructure problem that a municipality could address.
+ACCEPT only visible problems such as potholes or damaged roads/footpaths, overflowing garbage or illegal dumping, water leakage or flooding, broken/non-working streetlights or exposed electrical infrastructure, blocked/damaged drains or sewage issues, or comparable public infrastructure damage.
+REJECT selfies, portraits, people/pets, food, documents, screenshots, memes, ordinary scenery, intact roads/buildings, unrelated objects, and unclear images. A road or building being present is NOT itself a civic issue. Do not infer a problem that is not visibly evident.
+Return is_civic_issue=false for unrelated, unclear, or insufficient-evidence images. For rejected images use category OTHER, priority LOW, explain why, and return detected_objects only if useful.
+For accepted images set is_civic_issue=true, classify category as ROADS, WATER, GARBAGE, STREETLIGHT, DRAINAGE, OTHER, and set priority HIGH for immediate safety hazards or major disruption; MEDIUM for significant issues; LOW for minor issues.
+Return only JSON: {"is_civic_issue":true,"category":"ROADS","priority":"HIGH","reason":"Visible pothole on public road","detected_objects":["pothole"],"confidence":"HIGH"}.`
                 },
                 {
                     role: "user",
@@ -97,8 +101,8 @@ Return only JSON: {"category":"ROADS","priority":"HIGH","reason":"Brief visual e
                         {
                             type: "text",
                             text: description
-                                ? `Optional citizen description: ${description}. Use it as context, but classify what is visible in the image.`
-                                : "Analyse this civic issue photo."
+                                ? `Optional citizen description: ${description}. Use it only as context; the image itself must visibly show the civic issue.`
+                                : "Strictly check whether this image visibly shows a civic issue."
                         },
                         {
                             type: "image_url",
