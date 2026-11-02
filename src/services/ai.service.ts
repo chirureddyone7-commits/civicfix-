@@ -14,6 +14,9 @@ const aiResponseSchema = z.object({
         "OTHER"
     ]),
     priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    severity_score: z.number().int().min(0).max(100),
+    department: z.enum(["ROAD_MAINTENANCE", "WATER_SUPPLY", "SANITATION", "ELECTRICAL", "DRAINAGE", "GENERAL"]),
+    risk_factors: z.array(z.string()).max(6).default([]),
     reason: z.string()
 });
 
@@ -54,7 +57,10 @@ Choose one priority: LOW, MEDIUM, HIGH.
 HIGH means immediate safety risk or serious public disruption.
 MEDIUM means a significant problem requiring attention.
 LOW means a minor issue with limited impact.
-Return only JSON: {"category":"ROADS","priority":"HIGH","reason":"Brief explanation"}.`
+Assign exactly one responsible department using this mapping:
+ROADS=ROAD_MAINTENANCE; WATER=WATER_SUPPLY; GARBAGE=SANITATION; STREETLIGHT=ELECTRICAL; DRAINAGE=DRAINAGE; OTHER=GENERAL.
+Give a severity_score from 0 to 100 based on visible/explicit urgency, safety risk, number of people affected, and disruption. Do not invent facts. List concise risk_factors supported by the complaint; use [] if none are stated.
+Return only JSON: {"category":"ROADS","priority":"HIGH","severity_score":85,"department":"ROAD_MAINTENANCE","risk_factors":["Vehicles may swerve into traffic"],"reason":"Brief explanation"}.`
                 },
                 { role: "user", content: description }
             ],
