@@ -1,0 +1,64 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CITIZEN
+  ADMIN
+}
+
+enum Category {
+  ROADS
+  WATER
+  GARBAGE
+  STREETLIGHT
+  DRAINAGE
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CITIZEN)
+  issues    Issue[]
+  createdAt DateTime @default(now())
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  title       String
+  description String
+  category    Category    @default(OTHER)
+  priority    Priority    @default(MEDIUM)
+  location    String
+  status      IssueStatus @default(OPEN)
+
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
