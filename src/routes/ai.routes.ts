@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { analyzeIssue, analyzeIssueImage } from "../services/ai.service";
+import { analyzeIssue, analyzeIssueImage, findDuplicateIssues } from "../services/ai.service";
+import pool from "../config/database";
 
 const router = Router();
 
@@ -11,6 +12,54 @@ const analyzeSchema = z.object({
 const imageAnalyzeSchema = z.object({
     image: z.string().max(7_000_000),
     description: z.string().max(2000).optional()
+});
+
+
+const duplicateSchema = z.object({
+    title: z.string().min(3).max(150),
+    description: z.string().min(5).max(5000),
+    location: z.string().min(2).max(255),
+    category: z.enum(["ROADS", "WATER", "GARBAGE", "STREETLIGHT", "DRAINAGE", "OTHER"])
+});
+
+// POST /api/ai/check-duplicates
+router.post("/check-duplicates", async (req: Request, res: Response) => {
+    const validation = duplicateSchema.safeParse(req.body);
+    if (!validation.success) {
+        return res.status(400).json({ message: "Provide title, description, location and category." });
+    }
+
+    try {
+        const { title, description, location, category } = validation.data;
+        const candidates = await pool.query(
+            `SELECT id, title, description, location, category
+             FROM issues
+             WHERE status <> 'RESOLVED'
+             ORDER BY created_at DESC
+             LIMIT 50`
+        );
+
+        const result = await findDuplicateIssues(
+            { title, description, location, category },
+            candidates.rows.map((row: any) => ({
+                id: Number(row.id),
+                title: row.title,
+                description: row.description,
+                location: row.location,
+                category: row.category
+            }))
+        );
+
+        return res.status(200).json({
+            message: result.matches.length
+                ? "Potential similar complaints found."
+                : "No likely duplicates found.",
+            ...result
+        });
+    } catch (error) {
+        console.error("Duplicate analysis failed:", error);
+        return res.status(503).json({ message: "AI duplicate detection is currently unavailable." });
+    }
 });
 
 router.post("/analyze", async (req: Request, res: Response) => {
