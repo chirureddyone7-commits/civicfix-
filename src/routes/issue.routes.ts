@@ -1,7 +1,7 @@
-
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import pool from "../config/database";
+import { analyzeIssue } from "../services/ai.service";
 
 const router = Router();
 
@@ -27,7 +27,7 @@ const statusSchema = z.object({
 });
 
 // POST /api/issues
-// Submit a new civic complaint
+// AI classifies the complaint when category/priority are not supplied.
 router.post("/", async (req: Request, res: Response) => {
     try {
         const result = issueSchema.safeParse(req.body);
@@ -48,6 +48,22 @@ router.post("/", async (req: Request, res: Response) => {
             reporter_name
         } = result.data;
 
+        let aiAnalysis: {
+            category: "ROADS" | "WATER" | "GARBAGE" | "STREETLIGHT" | "DRAINAGE" | "OTHER";
+            priority: "LOW" | "MEDIUM" | "HIGH";
+            reason: string;
+        } | null = null;
+
+        try {
+            aiAnalysis = await analyzeIssue(`Title: ${title}\nDescription: ${description}`);
+        } catch (aiError) {
+            // Complaint submission must still work if the AI provider is unavailable.
+            console.warn("AI classification unavailable; using supplied/default values.", aiError);
+        }
+
+        const finalCategory = category || aiAnalysis?.category || "OTHER";
+        const finalPriority = priority || aiAnalysis?.priority || "MEDIUM";
+
         const query = `
       INSERT INTO issues
       (title, description, category, priority, location, reporter_name)
@@ -58,14 +74,13 @@ router.post("/", async (req: Request, res: Response) => {
         const values = [
             title,
             description,
-            category || "OTHER",
-            priority || "MEDIUM",
+            finalCategory,
+            finalPriority,
             location,
             reporter_name || null
         ];
 
         const dbResult = await pool.query(query, values);
-
         const issue = dbResult.rows[0];
 
         await pool.query(
@@ -77,7 +92,18 @@ router.post("/", async (req: Request, res: Response) => {
 
         return res.status(201).json({
             message: "Issue submitted successfully",
-            issue
+            issue,
+            ai_analysis: aiAnalysis
+                ? {
+                    used: true,
+                    category: aiAnalysis.category,
+                    priority: aiAnalysis.priority,
+                    reason: aiAnalysis.reason
+                }
+                : {
+                    used: false,
+                    reason: "AI unavailable; supplied/default classification was used."
+                }
         });
     } catch (error) {
         console.error("Create issue error:", error);
