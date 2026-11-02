@@ -18,8 +18,13 @@ const issueSchema = z.object({
     ]).optional(),
     priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
     location: z.string().min(2).max(255),
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
     reporter_name: z.string().max(100).optional()
-});
+}).refine(
+    data => (data.latitude == null) === (data.longitude == null),
+    { message: "Latitude and longitude must be provided together.", path: ["latitude"] }
+);
 
 const statusSchema = z.object({
     status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED"]),
@@ -45,6 +50,8 @@ router.post("/", async (req: Request, res: Response) => {
             category,
             priority,
             location,
+            latitude,
+            longitude,
             reporter_name
         } = result.data;
 
@@ -66,8 +73,8 @@ router.post("/", async (req: Request, res: Response) => {
 
         const query = `
       INSERT INTO issues
-      (title, description, category, priority, location, reporter_name)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      (title, description, category, priority, location, reporter_name, latitude, longitude)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
 
@@ -77,7 +84,9 @@ router.post("/", async (req: Request, res: Response) => {
             finalCategory,
             finalPriority,
             location,
-            reporter_name || null
+            reporter_name || null,
+            latitude ?? null,
+            longitude ?? null
         ];
 
         const dbResult = await pool.query(query, values);
