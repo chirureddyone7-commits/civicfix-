@@ -15,9 +15,11 @@ BEGIN
         ALTER TABLE issues
             ADD CONSTRAINT issues_coordinates_pair_check
             CHECK (
-                (latitude IS NULL AND longitude IS NULL)
-                OR
-                (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
+                ((latitude IS NULL) = (longitude IS NULL))
+                AND (
+                    latitude IS NULL
+                    OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
+                )
             );
     END IF;
 END $$;
