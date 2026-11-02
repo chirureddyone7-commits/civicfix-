@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "CivicFix",
+    "slug": "civicfix",
+    "scheme": "civicfix",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router",
+      ["expo-image-picker", { "photosPermission": "CivicFix needs photo access so you can attach evidence to a civic report." }],
+      ["expo-location", { "locationWhenInUsePermission": "CivicFix uses your location to place the civic issue on the map." }]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}
