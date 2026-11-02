@@ -1,0 +1,1 @@
+npm.cmd install lucide-react axios# civicfix-
