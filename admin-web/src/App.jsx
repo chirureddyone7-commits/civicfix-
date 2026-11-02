@@ -1,11 +1,12 @@
 
 import { useEffect, useState } from "react";
 import "./App.css";
+import CitizenReport from "./CitizenReport.jsx";
 
 import {
   LayoutDashboard, MapPin, ClipboardList, BarChart3,
   Users, Settings, Bell, Search, X, Activity,
-  CheckCircle2, Clock3, AlertTriangle, ShieldCheck
+  CheckCircle2, Clock3, AlertTriangle, ShieldCheck, FilePlus
 } from "lucide-react";
 
 import {
@@ -51,7 +52,8 @@ const nav = [
   ["Incidents", ClipboardList],
   ["Analytics", BarChart3],
   ["Departments", Users],
-  ["Settings", Settings]
+  ["Settings", Settings],
+  ["Report Issue", FilePlus]
 ];
 
 function Panel({ title, children, action }) {
@@ -177,6 +179,7 @@ function App() {
   });
 
   const titles = {
+    "Report Issue": "Report a Civic Issue",
     Overview: "Bengaluru",
     Map: "Incident Map",
     Incidents: "Incident Management",
@@ -297,6 +300,8 @@ function App() {
             API: {apiError}
           </div>
         )}
+
+        {active === "Report Issue" && <CitizenReport />}
 
         {/* OVERVIEW */}
         {active === "Overview" && (
