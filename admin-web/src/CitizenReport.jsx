@@ -21,14 +21,26 @@ export default function CitizenReport() {
 
   const change = (key, value) => setForm(old => ({ ...old, [key]: value }));
 
+  const clearImage = () => {
+    setImage(""); setImageName(""); setAnalysis(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   const handleImage = file => {
-    setError(""); setAnalysis(null);
+    setError(""); setMessage(""); setAnalysis(null);
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return setError("Choose a JPG, PNG or WebP image.");
-    if (file.size > 5 * 1024 * 1024) return setError("Image must be 5 MB or smaller.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      clearImage();
+      return setError("Choose a JPG, PNG or WebP image.");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      clearImage();
+      return setError("Image must be 5 MB or smaller.");
+    }
+    setImage(""); setImageName("");
     const reader = new FileReader();
     reader.onload = () => { setImage(String(reader.result || "")); setImageName(file.name); };
-    reader.onerror = () => setError("Could not read this image.");
+    reader.onerror = () => { clearImage(); setError("Could not read this image."); };
     reader.readAsDataURL(file);
   };
 
@@ -40,6 +52,10 @@ export default function CitizenReport() {
         body: JSON.stringify({ image, description: form.description })
       });
       const data = await response.json();
+      if (data.rejected) {
+        clearImage();
+        throw new Error(data.message || "This image is not relevant to a civic issue. Please upload another photo.");
+      }
       if (!response.ok) throw new Error(data.message || "AI image analysis failed.");
       setAnalysis(data.suggestion);
       setCategory(data.suggestion.category || "OTHER");
@@ -50,7 +66,12 @@ export default function CitizenReport() {
   };
 
   const submit = async event => {
-    event.preventDefault(); setBusy(true); setError(""); setMessage("");
+    event.preventDefault();
+    if (image && (!analysis || analysis.is_civic_issue !== true)) {
+      setError("Please analyse the uploaded photo first. CivicFix only accepts images verified as relevant civic issues.");
+      return;
+    }
+    setBusy(true); setError(""); setMessage("");
     try {
       // Check for similar active complaints before saving this report.
       try {
@@ -130,7 +151,7 @@ export default function CitizenReport() {
           </div>}
           <button type="button" style={button} disabled={!image || busy} onClick={analyzePhoto}>{busy ? "Please wait..." : "Analyse image with AI"}</button>
           {analysis && <div style={{ marginTop: 18, padding: 16, borderRadius: 11, background: "#211b35", border: "1px solid #51416e" }}>
-            <strong style={{ color: "#c4b5fd" }}>AI analysis result</strong>
+            <strong style={{ color: "#c4b5fd" }}> <span aria-label="verified">✓</span> Civic issue image accepted</strong>
             <p style={muted}>Category: <b>{analysis.category}</b> · Priority: <b>{analysis.priority}</b> · Confidence: <b>{analysis.confidence}</b></p>
             <p style={muted}>{analysis.reason}</p>
             {analysis.detected_objects?.length > 0 && <p style={muted}>Detected: {analysis.detected_objects.join(", ")}</p>}
