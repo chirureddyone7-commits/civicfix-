@@ -2,6 +2,9 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import pool from "../config/database";
 import { analyzeIssue } from "../services/ai.service";
+import cloudinary from "../config/cloudinary";
+import upload from "../middleware/upload";
+import { UploadApiResponse } from "cloudinary";
 
 const router = Router();
 
@@ -18,8 +21,8 @@ const issueSchema = z.object({
     ]).optional(),
     priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
     location: z.string().min(2).max(255),
-    latitude: z.number().min(-90).max(90).nullable().optional(),
-    longitude: z.number().min(-180).max(180).nullable().optional(),
+    latitude: z.preprocess(value => value === "" || value == null ? undefined : Number(value), z.number().min(-90).max(90).nullable().optional()),
+    longitude: z.preprocess(value => value === "" || value == null ? undefined : Number(value), z.number().min(-180).max(180).nullable().optional()),
     reporter_name: z.string().max(100).optional()
 }).refine(
     data => (data.latitude == null) === (data.longitude == null),
@@ -32,8 +35,8 @@ const statusSchema = z.object({
 });
 
 // POST /api/issues
-// AI classifies the complaint when category/priority are not supplied.
-router.post("/", async (req: Request, res: Response) => {
+// Accepts JSON for text-only reports and multipart/form-data with up to 5 photos.
+router.post("/", upload.array("photos", 5), async (req: Request, res: Response) => {
     try {
         const result = issueSchema.safeParse(req.body);
 
@@ -45,15 +48,35 @@ router.post("/", async (req: Request, res: Response) => {
         }
 
         const {
-            title,
-            description,
-            category,
-            priority,
-            location,
-            latitude,
-            longitude,
-            reporter_name
+            title, description, category, priority, location,
+            latitude, longitude, reporter_name
         } = result.data;
+
+        const files = (req.files as Express.Multer.File[] | undefined) || [];
+        let imageUrls: string[] = [];
+
+        if (files.length) {
+            if (!process.env.CLOUDINARY_CLOUD_NAME ||
+                !process.env.CLOUDINARY_API_KEY ||
+                !process.env.CLOUDINARY_API_SECRET) {
+                return res.status(503).json({
+                    message: "Photo uploads are not configured. Set the Cloudinary credentials in the backend .env file."
+                });
+            }
+
+            const uploaded = await Promise.all(files.map(file => new Promise<UploadApiResponse>((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: "civicfix/complaints", resource_type: "image" },
+                    (error, result) => {
+                        if (error || !result) return reject(error || new Error("Cloudinary upload failed."));
+                        resolve(result);
+                    }
+                );
+                stream.end(file.buffer);
+            })));
+
+            imageUrls = uploaded.map(image => image.secure_url);
+        }
 
         let aiAnalysis: {
             category: "ROADS" | "WATER" | "GARBAGE" | "STREETLIGHT" | "DRAINAGE" | "OTHER";
@@ -64,7 +87,6 @@ router.post("/", async (req: Request, res: Response) => {
         try {
             aiAnalysis = await analyzeIssue(`Title: ${title}\nDescription: ${description}`);
         } catch (aiError) {
-            // Complaint submission must still work if the AI provider is unavailable.
             console.warn("AI classification unavailable; using supplied/default values.", aiError);
         }
 
@@ -72,21 +94,15 @@ router.post("/", async (req: Request, res: Response) => {
         const finalPriority = priority || aiAnalysis?.priority || "MEDIUM";
 
         const query = `
-      INSERT INTO issues
-      (title, description, category, priority, location, reporter_name, latitude, longitude)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `;
+            INSERT INTO issues
+            (title, description, category, priority, location, reporter_name, latitude, longitude, image_urls)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *
+        `;
 
         const values = [
-            title,
-            description,
-            finalCategory,
-            finalPriority,
-            location,
-            reporter_name || null,
-            latitude ?? null,
-            longitude ?? null
+            title, description, finalCategory, finalPriority, location,
+            reporter_name || null, latitude ?? null, longitude ?? null, imageUrls
         ];
 
         const dbResult = await pool.query(query, values);
@@ -94,8 +110,8 @@ router.post("/", async (req: Request, res: Response) => {
 
         await pool.query(
             `INSERT INTO issue_status_history
-       (issue_id, old_status, new_status, note)
-       VALUES ($1, NULL, $2, $3)`,
+             (issue_id, old_status, new_status, note)
+             VALUES ($1, NULL, $2, $3)`,
             [issue.id, issue.status, "Issue submitted"]
         );
 
@@ -103,23 +119,12 @@ router.post("/", async (req: Request, res: Response) => {
             message: "Issue submitted successfully",
             issue,
             ai_analysis: aiAnalysis
-                ? {
-                    used: true,
-                    category: aiAnalysis.category,
-                    priority: aiAnalysis.priority,
-                    reason: aiAnalysis.reason
-                }
-                : {
-                    used: false,
-                    reason: "AI unavailable; supplied/default classification was used."
-                }
+                ? { used: true, category: aiAnalysis.category, priority: aiAnalysis.priority, reason: aiAnalysis.reason }
+                : { used: false, reason: "AI unavailable; supplied/default classification was used." }
         });
     } catch (error) {
         console.error("Create issue error:", error);
-
-        return res.status(500).json({
-            message: "Failed to submit issue"
-        });
+        return res.status(500).json({ message: "Failed to submit issue" });
     }
 });
 
