@@ -107,6 +107,14 @@ router.post("/analyze-image", async (req: Request, res: Response) => {
             image,
             validation.data.description
         );
+
+        if (!suggestion.is_civic_issue) {
+            return res.status(422).json({
+                rejected: true,
+                message: "This image does not appear to show a civic problem. Please upload a relevant photo such as a pothole, garbage, water leakage, damaged drain or broken streetlight."
+            });
+        }
+
         return res.status(200).json({
             message: "Image analysed successfully",
             suggestion
