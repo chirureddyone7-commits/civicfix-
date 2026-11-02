@@ -144,6 +144,56 @@ router.get("/", async (_req: Request, res: Response) => {
     }
 });
 
+// GET /api/issues/stats
+// Return live dashboard counts from PostgreSQL.
+router.get("/stats", async (_req: Request, res: Response) => {
+    try {
+        const [summary, categorySummary, weeklySummary] = await Promise.all([
+            pool.query(
+                `SELECT
+                    COUNT(*)::int AS total,
+                    COUNT(*) FILTER (WHERE status = 'RESOLVED')::int AS resolved,
+                    COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')::int AS in_progress,
+                    COUNT(*) FILTER (WHERE status = 'OPEN')::int AS pending,
+                    COUNT(*) FILTER (WHERE priority = 'HIGH')::int AS high_priority
+                 FROM issues`
+            ),
+            pool.query(
+                `SELECT category AS name, COUNT(*)::int AS value
+                 FROM issues
+                 GROUP BY category
+                 ORDER BY value DESC`
+            ),
+            pool.query(
+                `SELECT TO_CHAR(day, 'Dy') AS day, COALESCE(report_count, 0)::int AS reports
+                 FROM generate_series(
+                    CURRENT_DATE - INTERVAL '6 days',
+                    CURRENT_DATE,
+                    INTERVAL '1 day'
+                 ) AS day
+                 LEFT JOIN (
+                    SELECT DATE(created_at) AS report_day, COUNT(*)::int AS report_count
+                    FROM issues
+                    WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
+                    GROUP BY DATE(created_at)
+                 ) daily ON daily.report_day = DATE(day)
+                 ORDER BY DATE(day)`
+            )
+        ]);
+
+        return res.status(200).json({
+            summary: summary.rows[0],
+            categories: categorySummary.rows,
+            weekly: weeklySummary.rows
+        });
+    } catch (error) {
+        console.error("Issue statistics failed:", error);
+        return res.status(500).json({
+            message: "Could not retrieve dashboard statistics."
+        });
+    }
+});
+
 // GET /api/issues/hotspots
 // Find repeated unresolved complaint locations using the location text.
 router.get("/hotspots", async (_req: Request, res: Response) => {
