@@ -13,13 +13,40 @@ export default function CitizenReport() {
   const [image, setImage] = useState("");
   const [imageName, setImageName] = useState("");
   const [analysis, setAnalysis] = useState(null);
+  const [assessment, setAssessment] = useState(null);
   const [category, setCategory] = useState("OTHER");
   const [priority, setPriority] = useState("MEDIUM");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const change = (key, value) => setForm(old => ({ ...old, [key]: value }));
+  const change = (key, value) => {
+    setForm(old => ({ ...old, [key]: value }));
+    setAssessment(null);
+  };
+
+  const assessComplaint = async () => {
+    setBusy(true); setError(""); setMessage(""); setAssessment(null);
+    try {
+      const response = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: `Title: ${form.title}\nDescription: ${form.description}`
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "AI assessment failed.");
+      setAssessment(data.suggestion);
+      setCategory(data.suggestion.category);
+      setPriority(data.suggestion.priority);
+      setMessage("AI severity and department assessment complete. Review the recommendation.");
+    } catch (e) {
+      setError(e.message || "Could not assess complaint.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const clearImage = () => {
     setImage(""); setImageName(""); setAnalysis(null);
@@ -58,6 +85,7 @@ export default function CitizenReport() {
       }
       if (!response.ok) throw new Error(data.message || "AI image analysis failed.");
       setAnalysis(data.suggestion);
+      setAssessment(null);
       setCategory(data.suggestion.category || "OTHER");
       setPriority(data.suggestion.priority || "MEDIUM");
       setMessage("AI analysis complete. Review the suggested category and priority.");
@@ -116,7 +144,7 @@ export default function CitizenReport() {
       if (!response.ok) throw new Error(data.message || "Complaint submission failed.");
       setMessage(`Complaint submitted. Your complaint ID is CF-${data.issue.id}.`);
       setForm({ title: "", description: "", location: "", reporter: "" });
-      setImage(""); setImageName(""); setAnalysis(null); setCategory("OTHER"); setPriority("MEDIUM");
+      setImage(""); setImageName(""); setAnalysis(null); setAssessment(null); setCategory("OTHER"); setPriority("MEDIUM");
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) { setError(e.message || "Could not submit complaint."); }
     finally { setBusy(false); }
@@ -156,6 +184,21 @@ export default function CitizenReport() {
             <p style={muted}>{analysis.reason}</p>
             {analysis.detected_objects?.length > 0 && <p style={muted}>Detected: {analysis.detected_objects.join(", ")}</p>}
             <p style={muted}>Review AI suggestions before submitting. AI output may be incorrect.</p>
+          </div>}
+        </div>
+        <div style={panel}>
+          <h3 style={{ marginTop: 0 }}>AI severity & department assessment</h3>
+          <p style={muted}>AI evaluates the complaint description, estimates urgency from 0–100, and recommends the municipal department.</p>
+          <button type="button" style={button} disabled={busy || form.title.trim().length < 3 || form.description.trim().length < 5} onClick={assessComplaint}>
+            {busy ? "Assessing..." : "Assess severity & department"}
+          </button>
+          {assessment && <div style={{ marginTop: 16, padding: 16, borderRadius: 11, background: "#211b35", border: "1px solid #51416e" }}>
+            <strong style={{ color: "#c4b5fd" }}>AI assessment</strong>
+            <p style={muted}>Severity score: <b>{assessment.severity_score}/100</b> · Priority: <b>{assessment.priority}</b></p>
+            <p style={muted}>Recommended department: <b>{assessment.department.replaceAll("_", " ")}</b></p>
+            <p style={muted}>{assessment.reason}</p>
+            {assessment.risk_factors?.length > 0 && <p style={muted}>Risk factors: {assessment.risk_factors.join(", ")}</p>}
+            <p style={muted}>This is an AI recommendation. Municipal staff should verify it.</p>
           </div>}
         </div>
         <div style={panel}>
