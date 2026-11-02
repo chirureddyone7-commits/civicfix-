@@ -23,6 +23,14 @@ CREATE TABLE IF NOT EXISTS issues (
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
 
+    CONSTRAINT issues_coordinates_pair_check CHECK (
+        ((latitude IS NULL) = (longitude IS NULL))
+        AND (
+            latitude IS NULL
+            OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
+        )
+    ),
+
     status VARCHAR(20) NOT NULL DEFAULT 'OPEN'
         CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
 
