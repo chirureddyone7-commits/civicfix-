@@ -97,6 +97,9 @@ function App() {
   const [apiError, setApiError] = useState("");
   const [hotspots, setHotspots] = useState([]);
   const [hotspotError, setHotspotError] = useState("");
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [dashboardCategories, setDashboardCategories] = useState(categories);
+  const [dashboardWeekly, setDashboardWeekly] = useState(weekly);
 
   useEffect(() => {
     let active = true;
@@ -152,6 +155,40 @@ function App() {
       })
       .catch(error => {
         if (active) setHotspotError(error.message || "Hotspot data unavailable");
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/issues/stats")
+      .then(async response => {
+        if (!response.ok) throw new Error("Could not load live dashboard statistics");
+        return response.json();
+      })
+      .then(data => {
+        if (!active) return;
+        setDashboardStats(data.summary || null);
+        const categoryNames = {
+          ROADS: "Roads", WATER: "Water", GARBAGE: "Sanitation",
+          STREETLIGHT: "Electrical", DRAINAGE: "Drainage", OTHER: "Other"
+        };
+        const categoryColors = {
+          ROADS: "#a78bfa", WATER: "#34d399", GARBAGE: "#38bdf8",
+          STREETLIGHT: "#fbbf24", DRAINAGE: "#d946ef", OTHER: "#94a3b8"
+        };
+        setDashboardCategories((data.categories || []).map(item => ({
+          name: categoryNames[item.name] || item.name,
+          value: Number(item.value),
+          color: categoryColors[item.name] || "#94a3b8"
+        })));
+        setDashboardWeekly((data.weekly || []).map(item => ({
+          day: item.day,
+          reports: Number(item.reports)
+        })));
+      })
+      .catch(error => {
+        if (active) setApiError(error.message || "Dashboard statistics unavailable");
       });
     return () => { active = false; };
   }, []);
@@ -332,10 +369,10 @@ function App() {
           <>
             <section className="metric-grid">
               {[
-                ["Total Incidents", "1,320", Activity, "violet"],
-                ["Resolved", "1,123", CheckCircle2, "green"],
-                ["In Progress", "560", Clock3, "blue"],
-                ["Pending", "480", AlertTriangle, "orange"]
+                ["Total Incidents", dashboardStats?.total ?? "—", Activity, "violet"],
+                ["Resolved", dashboardStats?.resolved ?? "—", CheckCircle2, "green"],
+                ["In Progress", dashboardStats?.in_progress ?? "—", Clock3, "blue"],
+                ["Pending", dashboardStats?.pending ?? "—", AlertTriangle, "orange"]
               ].map(([label, value, Icon, color]) => (
                 <div className="metric-card" key={label}>
                   <div className={`metric-icon ${color}`}>
@@ -369,10 +406,10 @@ function App() {
 
               <Panel title="Key Metrics">
                 <div className="mini-metrics">
-                  <div><Activity /><strong>1,320</strong><small>Total</small></div>
-                  <div><CheckCircle2 /><strong>1,123</strong><small>Resolved</small></div>
-                  <div><Clock3 /><strong>560</strong><small>In Progress</small></div>
-                  <div><AlertTriangle /><strong>480</strong><small>Pending</small></div>
+                  <div><Activity /><strong>{dashboardStats?.total ?? "—"}</strong><small>Total</small></div>
+                  <div><CheckCircle2 /><strong>{dashboardStats?.resolved ?? "—"}</strong><small>Resolved</small></div>
+                  <div><Clock3 /><strong>{dashboardStats?.in_progress ?? "—"}</strong><small>In Progress</small></div>
+                  <div><AlertTriangle /><strong>{dashboardStats?.pending ?? "—"}</strong><small>Pending</small></div>
                 </div>
 
                 <div className="distribution">
@@ -380,13 +417,13 @@ function App() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={categories}
+                          data={dashboardCategories}
                           dataKey="value"
                           innerRadius={48}
                           outerRadius={70}
                           paddingAngle={3}
                         >
-                          {categories.map(c => (
+                          {dashboardCategories.map(c => (
                             <Cell key={c.name} fill={c.color} />
                           ))}
                         </Pie>
@@ -395,13 +432,13 @@ function App() {
                     </ResponsiveContainer>
 
                     <div className="donut-center">
-                      <strong>1,320</strong>
+                      <strong>{dashboardStats?.total ?? "—"}</strong>
                       <small>Reports</small>
                     </div>
                   </div>
 
                   <div className="category-list">
-                    {categories.map(c => (
+                    {dashboardCategories.map(c => (
                       <div key={c.name}>
                         <i style={{ background: c.color }} />
                         <span>{c.name}</span>
@@ -415,7 +452,7 @@ function App() {
               <Panel title="Severity Trend">
                 <div className="chart-box">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weekly}>
+                    <AreaChart data={dashboardWeekly}>
                       <defs>
                         <linearGradient
                           id="areaPurple"
@@ -661,7 +698,7 @@ function App() {
             <Panel title="Weekly Incident Reports">
               <div className="large-chart">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weekly}>
+                  <BarChart data={dashboardWeekly}>
                     <CartesianGrid
                       stroke="#302b4b"
                       strokeDasharray="3 3"
@@ -684,13 +721,13 @@ function App() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={categories}
+                      data={dashboardCategories}
                       dataKey="value"
                       nameKey="name"
                       outerRadius={110}
                       label
                     >
-                      {categories.map(c => (
+                      {dashboardCategories.map(c => (
                         <Cell key={c.name} fill={c.color} />
                       ))}
                     </Pie>
