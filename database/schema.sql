@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS issues (
         CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
 
     reporter_name VARCHAR(100),
+    image_urls TEXT[] NOT NULL DEFAULT '{}',
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -79,3 +80,7 @@ ON issues(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_history_issue_id
 ON issue_status_history(issue_id);
+
+
+-- Safe migration for databases created before complaint photo support.
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS image_urls TEXT[] NOT NULL DEFAULT '{}';
