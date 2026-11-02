@@ -150,16 +150,22 @@ router.get("/hotspots", async (_req: Request, res: Response) => {
     try {
         const result = await pool.query(
             `SELECT
-                LOWER(TRIM(location)) AS location_key,
+                CASE
+                    WHEN latitude IS NOT NULL AND longitude IS NOT NULL
+                    THEN 'gps:' || ROUND(latitude::numeric, 3)::text || ':' || ROUND(longitude::numeric, 3)::text
+                    ELSE 'text:' || LOWER(TRIM(location))
+                END AS location_key,
                 MIN(location) AS location,
                 COUNT(*)::int AS report_count,
                 COUNT(*) FILTER (WHERE priority = 'HIGH')::int AS high_priority_count,
                 COUNT(*) FILTER (WHERE priority = 'MEDIUM')::int AS medium_priority_count,
                 COUNT(*) FILTER (WHERE priority = 'LOW')::int AS low_priority_count,
+                AVG(latitude)::double precision AS latitude,
+                AVG(longitude)::double precision AS longitude,
                 ARRAY_AGG(DISTINCT category ORDER BY category) AS categories
              FROM issues
              WHERE status <> 'RESOLVED'
-             GROUP BY LOWER(TRIM(location))
+             GROUP BY location_key
              HAVING COUNT(*) >= 2
              ORDER BY COUNT(*) DESC, high_priority_count DESC
              LIMIT 20`
