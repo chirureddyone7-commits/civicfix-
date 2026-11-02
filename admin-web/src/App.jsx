@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./App.css";
-import CitizenReport from "./CitizenReport.jsx";
 import {
   LayoutDashboard, MapPin, ClipboardList, BarChart3, Users, Settings,
-  Search, ShieldCheck, FilePlus, Activity, CheckCircle2, Clock3,
+  Search, ShieldCheck, Activity, CheckCircle2, Clock3,
   AlertTriangle, RefreshCw, Sparkles, MessageCircle, X, ArrowUpRight
 } from "lucide-react";
 import {
@@ -26,7 +25,7 @@ const COLORS = ["#a78bfa", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#94a3b8"
 const NAV = [
   ["Overview", LayoutDashboard], ["Map & Hotspots", MapPin],
   ["Incidents", ClipboardList], ["AI Insights", Sparkles],
-  ["Departments", Users], ["Report Issue", FilePlus]
+  ["Departments", Users]
 ];
 const parseCoordinates = location => {
   const match = String(location || "").match(/\[GPS:\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\]/i);
@@ -205,8 +204,6 @@ function App() {
         <section className="city-banner"><div className="city-copy"><span className="eyebrow">CIVICFIX / {active.toUpperCase()}</span><h1>{title}</h1><h2>{active === "Overview" ? "AI-assisted civic response platform" : "Live complaints · operational intelligence"}</h2><p>Better reporting. Smarter prioritisation. Accountable resolution.</p></div></section>
         {apiError && <div role="alert" className="civic-alert">{apiError} <button onClick={loadIssues}>Retry</button></div>}
         <div className="civic-toolbar"><span>{loading ? "Loading complaints…" : `${issues.length} records loaded from the backend`}</span><button onClick={loadIssues} disabled={loading}><RefreshCw size={14}/> Refresh</button><small>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "Waiting for API"}</small></div>
-
-        {active === "Report Issue" && <CitizenReport/>}
 
         {active === "Overview" && <>
           <section className="metric-grid">
