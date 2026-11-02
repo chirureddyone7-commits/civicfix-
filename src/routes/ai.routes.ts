@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { analyzeIssue, analyzeIssueImage, findDuplicateIssues } from "../services/ai.service";
+import { analyzeIssue, analyzeIssueImage, analyzeCombinedReport, findDuplicateIssues } from "../services/ai.service";
 import pool from "../config/database";
 
 const router = Router();
@@ -81,6 +81,51 @@ router.post("/analyze", async (req: Request, res: Response) => {
         return res.status(503).json({
             message: "AI text analysis is currently unavailable."
         });
+    }
+});
+
+
+const combinedAnalyzeSchema = z.object({
+    image: z.string().max(7_000_000),
+    title: z.string().min(3).max(150),
+    description: z.string().min(5).max(2000)
+});
+
+// POST /api/ai/analyze-report: verify the photo against the citizen's written report.
+router.post("/analyze-report", async (req: Request, res: Response) => {
+    const validation = combinedAnalyzeSchema.safeParse(req.body);
+    if (!validation.success) {
+        return res.status(400).json({ message: "Provide a valid image, title and description." });
+    }
+    if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(validation.data.image)) {
+        return res.status(400).json({ message: "Only JPEG, PNG and WebP images are supported." });
+    }
+    try {
+        const suggestion = await analyzeCombinedReport(
+            validation.data.image,
+            validation.data.title,
+            validation.data.description
+        );
+        if (!suggestion.is_civic_issue) {
+            return res.status(422).json({
+                rejected: true,
+                message: "The uploaded photo does not clearly show a civic issue. Please upload a relevant photo."
+            });
+        }
+        if (!suggestion.text_matches_image) {
+            return res.status(422).json({
+                mismatch: true,
+                suggestion,
+                message: suggestion.mismatch_reason || "The photo does not appear to match the complaint description. Please correct the details or upload the right photo."
+            });
+        }
+        return res.status(200).json({
+            message: "Photo and complaint description verified together.",
+            suggestion
+        });
+    } catch (error) {
+        console.error("Combined AI report verification failed:", error);
+        return res.status(503).json({ message: "AI report verification is currently unavailable." });
     }
 });
 
