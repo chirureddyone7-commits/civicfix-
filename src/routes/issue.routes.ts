@@ -135,6 +135,39 @@ router.get("/", async (_req: Request, res: Response) => {
     }
 });
 
+// GET /api/issues/hotspots
+// Find repeated unresolved complaint locations using the location text.
+router.get("/hotspots", async (_req: Request, res: Response) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                LOWER(TRIM(location)) AS location_key,
+                MIN(location) AS location,
+                COUNT(*)::int AS report_count,
+                COUNT(*) FILTER (WHERE priority = 'HIGH')::int AS high_priority_count,
+                COUNT(*) FILTER (WHERE priority = 'MEDIUM')::int AS medium_priority_count,
+                COUNT(*) FILTER (WHERE priority = 'LOW')::int AS low_priority_count,
+                ARRAY_AGG(DISTINCT category ORDER BY category) AS categories
+             FROM issues
+             WHERE status <> 'RESOLVED'
+             GROUP BY LOWER(TRIM(location))
+             HAVING COUNT(*) >= 2
+             ORDER BY COUNT(*) DESC, high_priority_count DESC
+             LIMIT 20`
+        );
+
+        return res.status(200).json({
+            count: result.rows.length,
+            hotspots: result.rows
+        });
+    } catch (error) {
+        console.error("Hotspot detection failed:", error);
+        return res.status(500).json({
+            message: "Could not retrieve complaint hotspots."
+        });
+    }
+});
+
 // GET /api/issues/:id
 // Retrieve one complaint
 router.get("/:id", async (req: Request, res: Response) => {
