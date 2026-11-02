@@ -23,6 +23,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist "package.json" (
+  echo ERROR: package.json was not found.
+  echo This launcher must stay in the CivicFix repository root.
+  pause
+  exit /b 1
+)
+
 if not exist ".env" (
   echo ERROR: The backend .env file is missing.
   echo.
@@ -32,18 +39,19 @@ if not exist ".env" (
   exit /b 1
 )
 
-if not exist "node_modules" (
-  echo Installing backend dependencies...
-  call npm install
-  if errorlevel 1 (
-    echo.
-    echo ERROR: Backend dependency installation failed.
-    pause
-    exit /b 1
-  )
+echo Checking and installing backend dependencies...
+call npm install
+if errorlevel 1 (
+  echo.
+  echo ERROR: Dependency installation failed.
+  echo Check your internet connection and package.json, then try again.
+  pause
+  exit /b 1
 )
 
-echo Starting CivicFix API on port 5000...
+echo.
+echo Starting CivicFix API...
+echo The API port is configured by PORT in .env (default: 5000).
 echo Keep this window open while using CivicFix.
 echo.
 call npm run dev
