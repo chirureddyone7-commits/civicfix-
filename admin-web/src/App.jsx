@@ -91,9 +91,24 @@ function App() {
     setLoading(true);
     try {
       const response = await fetch("/api/issues");
-      if (!response.ok) throw new Error("The backend could not return complaints.");
-      const data = await response.json();
-      setIssues((data.issues || []).map(normalizeIssue));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        let detail = data.message || `Request failed with HTTP ${response.status}`;
+        try {
+          const healthResponse = await fetch("/api/health");
+          const health = await healthResponse.json().catch(() => ({}));
+          if (!healthResponse.ok || health.database === "disconnected") {
+            detail = health.message || "The API is running, but PostgreSQL is disconnected. Check the backend database connection and DB_* settings.";
+          }
+        } catch {
+          detail += " Check that the backend is running on http://localhost:5000.";
+        }
+        throw new Error(detail);
+      }
+      if (!Array.isArray(data.issues)) {
+        throw new Error("The API responded, but its response did not contain an issues array.");
+      }
+      setIssues(data.issues.map(normalizeIssue));
       setApiError("");
       setLastUpdated(new Date());
     } catch (error) {
