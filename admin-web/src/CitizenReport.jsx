@@ -122,14 +122,17 @@ export default function CitizenReport() {
     }
     setBusy(true);
     try {
-      const location = coords
-        ? `${form.location.trim()} [GPS: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}]`
-        : form.location.trim();
       const response = await fetch("/api/issues", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: form.title.trim(), description: form.description.trim(), location,
-          reporter_name: form.reporter.trim() || undefined, category, priority
+          title: form.title.trim(),
+          description: form.description.trim(),
+          location: form.location.trim(),
+          reporter_name: form.reporter.trim() || undefined,
+          category,
+          priority,
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null
         })
       });
       const data = await response.json();
