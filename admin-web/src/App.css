@@ -1080,3 +1080,30 @@ td small {
     font-size: 24px;
   }
 }
+/* CivicFix AI suite additions */
+.civic-alert{margin:12px 0;padding:12px 15px;border:1px solid #9f4565;border-radius:9px;color:#ffc2d6;background:#351626;display:flex;justify-content:space-between;gap:12px}
+.civic-alert button,.civic-toolbar button{border:1px solid #7550b3;border-radius:7px;padding:7px 10px;background:#33204f;color:#eee}
+.civic-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:8px 0 16px;color:#aaa0c6;font-size:11px}
+.civic-toolbar button{display:flex;align-items:center;gap:6px}
+.civic-toolbar small{margin-left:auto;color:#807594}
+.civic-note{margin:0;padding:0 14px 13px;color:#a99fbd;font-size:11px;line-height:1.6}
+.priority-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:15px}
+.priority-summary div{background:#211d39;border:1px solid #38304f;border-radius:9px;padding:13px;display:grid;gap:7px}
+.priority-summary strong{font-size:23px;color:#f4efff}
+.priority-summary span{font-size:10px;color:#aaa0c6}
+.civic-list{padding:7px 14px 13px}
+.civic-list>div,.civic-list>button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px;border:0;border-bottom:1px solid #302943;background:transparent;color:#eee8fa;text-align:left}
+.civic-list>div:last-child,.civic-list>button:last-child{border-bottom:0}
+.civic-list span{min-width:0;display:grid;gap:5px}
+.civic-list b{font-size:11px}
+.civic-list small{font-size:9px;color:#9d93b5;overflow-wrap:anywhere}
+.civic-list strong{font-size:10px;color:#cbb5ff;text-align:right}
+.assistant-box{padding:15px}
+.assistant-prompts{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}
+.assistant-prompts button{border:1px solid #51416e;border-radius:20px;background:#211b35;color:#cfc0ec;padding:7px 10px;font-size:10px}
+.assistant-input{display:flex;gap:8px}
+.assistant-input input{flex:1;min-width:0;border:1px solid #51416e;border-radius:8px;background:#100e1b;color:#f5f0ff;padding:11px}
+.assistant-input button{display:flex;align-items:center;gap:6px;border:0;border-radius:8px;background:#7045ad;color:#fff;padding:0 13px}
+.assistant-answer{display:flex;gap:10px;margin-top:14px;padding:13px;border:1px solid #51416e;border-radius:9px;background:#211b35;color:#cdbbfa}
+.assistant-answer p{margin:0;color:#e6def5;font-size:12px;line-height:1.6}
+@media(max-width:700px){.civic-toolbar small{margin-left:0}.priority-summary{grid-template-columns:1fr}.assistant-input{flex-direction:column}.assistant-input button{justify-content:center;padding:10px}}
